@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:timelycabparcel_onboarding/services/api_urls.dart';
+import 'package:timelycabparcel_onboarding/services/auth_session.dart';
 
 import 'controllers/onboarding_controller.dart';
 
@@ -84,10 +85,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       final registerResponse = await http
           .post(
         Uri.parse(ApiUrls.registerDriver),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: AuthSession.headers(),
         body: jsonEncode({
           'phoneNumber': normalizedMobile,
         }),
@@ -117,10 +115,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       final otpResponse = await http
           .post(
         Uri.parse(ApiUrls.requestDriverOtp),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: AuthSession.headers(),
         body: jsonEncode({
           'phoneNumber': normalizedMobile,
         }),
@@ -229,7 +224,20 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           response.statusCode < 300) {
         if (!mounted) return;
 
-        // Navigate only after successful verification.
+        final decoded = jsonDecode(response.body);
+        final token = AuthSession.extractToken(decoded) ??
+            _tokenFromHeader(response.headers);
+        if (token == null || token.isEmpty) {
+          _showError(
+            'Verification Failed',
+            'OTP verified, but the server did not return an access token.',
+          );
+          return;
+        }
+
+        AuthSession.saveToken(token);
+        debugPrint('Access token saved for later API calls');
+
         _controller.goToRegister();
       } else {
         _showError(
@@ -256,6 +264,16 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
     }
   }
 
+
+  String? _tokenFromHeader(Map<String, String> headers) {
+    final raw = headers['authorization'] ?? headers['x-access-token'];
+    if (raw == null || raw.trim().isEmpty) return null;
+    final value = raw.trim();
+    if (value.toLowerCase().startsWith('bearer ')) {
+      return value.substring(7).trim();
+    }
+    return value;
+  }
 
   String _extractMessage(String responseBody, String fallback) {
     try {

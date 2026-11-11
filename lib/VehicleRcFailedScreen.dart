@@ -23,7 +23,7 @@ class _VehicleRcFailedScreenState extends State<VehicleRcFailedScreen> {
         label: 'Continue',
         onPressed: () {
           _controller.rcRejected = false;
-          _controller.goToDriverLicense();
+          _controller.goToAadhar();
         },
       ),
       child: Container(

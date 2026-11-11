@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:get_storage/get_storage.dart';
 
 import '../config/api_config.dart';
+import 'auth_session.dart';
 
 class DriverApiClient {
   DriverApiClient() {
@@ -17,8 +17,8 @@ class DriverApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          final token = GetStorage().read('access_token')?.toString();
-          if (token != null && token.isNotEmpty) {
+          final token = AuthSession.token;
+          if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           handler.next(options);

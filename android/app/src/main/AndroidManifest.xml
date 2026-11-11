@@ -33,8 +33,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:scheme="yourapp"
-                    android:host="aadhar-callback" />
+                    android:scheme="timelycab"
+                    android:host="aadhaar" />
             </intent-filter>
 
         </activity>
@@ -51,6 +51,7 @@
 
         <intent>
             <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
 
         <intent>

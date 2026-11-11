@@ -32,6 +32,21 @@ class OnboardingController extends GetxController {
   String ifscCode = '';
   String accountHolder = '';
   bool rcRejected = false;
+  bool aadhaarReadyForUpload = false;
+  void Function()? onAadhaarDeepLink;
+
+  /// DigiLocker returned to the app. Show Aadhaar photo upload.
+  void openAadhaarUpload() {
+    final alreadyWaiting = aadhaarReadyForUpload;
+    aadhaarReadyForUpload = true;
+    final handler = onAadhaarDeepLink;
+    if (handler != null) {
+      handler();
+      return;
+    }
+    if (alreadyWaiting) return;
+    Get.to(() => const AadharVerificationScreen(showUpload: true));
+  }
 
   void goToLogin() => Get.to(() => const LoginRegisterScreen());
 
@@ -45,13 +60,15 @@ class OnboardingController extends GetxController {
     Get.to(() => const VehicalResistration());
   }
 
-  void goToVehicleRc() => goToDriverLicense();
+  void goToVehicleRc() => goToAadhar();
 
   void goToDriverLicense() => Get.to(() => const DriverLicenseScreen());
 
   void goToProfilePhoto() => Get.to(() => const ProfilePhotoScreen());
 
-  void goToAadhar() => Get.to(() => const AadharVerificationScreen());
+  void goToAadhar() => Get.to(
+        () => AadharVerificationScreen(showUpload: aadhaarReadyForUpload),
+      );
 
   void goToPan() => Get.to(() => const PanVerificationScreen());
 

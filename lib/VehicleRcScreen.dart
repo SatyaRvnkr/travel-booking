@@ -21,7 +21,7 @@ class _VehicleRcScreenState extends State<VehicleRcScreen> {
       subtitle: 'You can continue without uploading RC for now',
       bottomButton: primaryButton(
         label: 'Upload & continue',
-        onPressed: () => _controller.goToDriverLicense(),
+        onPressed: () => _controller.goToAadhar(),
       ),
       child: const Padding(
         padding: EdgeInsets.only(top: 8),

@@ -1,19 +1,23 @@
 
-import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:app_links/app_links.dart';
 
 import 'controllers/onboarding_controller.dart';
+import 'services/api_urls.dart';
+import 'services/auth_session.dart';
 import 'models/document_type.dart';
 import 'widgets/document_upload_card.dart';
 import 'widgets/onboarding_layout.dart';
 
 class AadharVerificationScreen extends StatefulWidget {
-  const AadharVerificationScreen({super.key});
+  final bool showUpload;
+
+  const AadharVerificationScreen({super.key, this.showUpload = false});
 
   @override
   State<AadharVerificationScreen> createState() =>
@@ -28,19 +32,12 @@ class _AadharVerificationScreenState
 
   final OnboardingController _controller = Get.find();
 
-  final AppLinks _appLinks = AppLinks();
-
-  StreamSubscription<Uri>? _linkSubscription;
-
   bool _isVerified = false;
   bool _isVerifying = false;
   bool _canContinue = false;
 
   String? _requestId;
-
-  // Replace with your actual backend API integration.
-  static const String backendBaseUrl =
-      'https://YOUR-BACKEND-DOMAIN.com';
+  String? _transactionId;
 
   bool get _isValidAadhar {
     return RegExp(r'^[0-9]{12}$')
@@ -50,111 +47,24 @@ class _AadharVerificationScreenState
   @override
   void initState() {
     super.initState();
-    _initializeDeepLinks();
+    _isVerified = widget.showUpload || _controller.aadhaarReadyForUpload;
+    _controller.onAadhaarDeepLink = _showPhotoUpload;
   }
 
-  // --------------------------------------------------
-  // DEEP LINK INITIALIZATION
-  // --------------------------------------------------
-
-  Future<void> _initializeDeepLinks() async {
-    // Handle app opened through deep link when terminated.
-    try {
-      final initialUri = await _appLinks.getInitialLink();
-
-      if (initialUri != null) {
-        await _handleDeepLink(initialUri);
-      }
-    } catch (e) {
-      debugPrint('Initial deep link error: $e');
-    }
-
-    // Handle app returning from DigiLocker.
-    _linkSubscription =
-        _appLinks.uriLinkStream.listen(
-              (Uri uri) {
-            _handleDeepLink(uri);
-          },
-          onError: (error) {
-            debugPrint('Deep link stream error: $error');
-          },
-        );
+  String _maskedAadhaar() {
+    final number = _aadharController.text.trim().isNotEmpty
+        ? _aadharController.text.trim()
+        : _controller.aadharNumber.trim();
+    if (number.length < 4) return 'Aadhaar verified';
+    return 'XXXX XXXX ${number.substring(number.length - 4)}';
   }
 
-  // --------------------------------------------------
-  // HANDLE GRIDLINES CALLBACK
-  // --------------------------------------------------
-
-  Future<void> _handleDeepLink(Uri uri) async {
-
-    debugPrint('Received deep link: $uri');
-
-    if (uri.scheme != 'yourapp' ||
-        uri.host != 'aadhar-callback') {
-      return;
-    }
-
-    final String? requestId =
-    uri.queryParameters['requestId'];
-
-    if (requestId == null || requestId.isEmpty) {
-      Get.snackbar(
-        'Verification Error',
-        'Verification request ID is missing.',
-      );
-      return;
-    }
-
+  void _showPhotoUpload() {
     if (!mounted) return;
-
     setState(() {
-      _isVerifying = true;
-      _requestId = requestId;
+      _isVerified = true;
+      _isVerifying = false;
     });
-
-    try {
-      // Check actual verification status from your backend.
-      final bool verified =
-      await _checkGridlinesVerificationStatus(requestId);
-
-      if (!mounted) return;
-
-      if (verified) {
-        setState(() {
-          _isVerified = true;
-          _isVerifying = false;
-        });
-
-        Get.snackbar(
-          'Success',
-          'Aadhaar verified successfully.',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      } else {
-        setState(() {
-          _isVerifying = false;
-        });
-
-        Get.snackbar(
-          'Verification Pending',
-          'Aadhaar verification is not yet complete.',
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isVerifying = false;
-      });
-
-      Get.snackbar(
-        'Error',
-        'Unable to check verification status.',
-      );
-
-      debugPrint('Verification status error: $e');
-    }
   }
 
   // --------------------------------------------------
@@ -163,51 +73,97 @@ class _AadharVerificationScreenState
 
   Future<Map<String, dynamic>> _createGridlinesRequest(
       String aadhaarNumber) async {
-
-    /*
-      TODO: Connect your actual backend API here.
-
-      Backend should:
-      1. Create Gridlines DigiLocker verification request.
-      2. Send the configured HTTPS callback URL to Gridlines.
-      3. Return authorizationUrl and requestId.
-
-      Expected response shape for this screen:
-
-      {
-        "requestId": "GRIDLINES_REQUEST_ID",
-        "authorizationUrl": "https://..."
-      }
-
-      Do not send Gridlines secret keys from Flutter.
-    */
-
-    throw UnimplementedError(
-      'Connect your Create Verification Request API here.',
+    final headers = AuthSession.headers();
+    debugPrint(
+      'DigiLocker init Authorization: ${headers.containsKey('Authorization')}',
     );
+
+    final response = await http
+        .post(
+          Uri.parse(ApiUrls.aadhaarDigilockerInit),
+          headers: headers,
+          body: jsonEncode({
+            'aadhaarNumber': aadhaarNumber,
+            'consent': 'Y',
+            'pinless': 'false',
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('DigiLocker init status: ${response.statusCode}');
+    debugPrint('DigiLocker init response: ${response.body}');
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw Exception('The server returned an invalid response.');
+    }
+
+    final root = Map<String, dynamic>.from(decoded);
+    final message = root['message']?.toString();
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        root['success'] == false) {
+      throw Exception(
+        message != null && message.isNotEmpty
+            ? message
+            : 'Unable to start Aadhaar verification.',
+      );
+    }
+
+    final data = root['data'];
+    if (data is! Map) {
+      throw Exception('Authorization URL was not returned.');
+    }
+
+    return Map<String, dynamic>.from(data);
   }
 
-  // --------------------------------------------------
-  // CHECK GRIDLINES VERIFICATION STATUS
-  // --------------------------------------------------
+  /// Opens the authorize URL only through `purpose=Know`.
+  /// Drops `Your Customer`, `service_name`, and `req_doctype`.
+  Uri _digiLockerUri(String raw) {
+    var value = raw.trim();
+    if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
+      value = value.substring(1, value.length - 1);
+    }
+    value = value.replaceAll(r'\u0026', '&').replaceAll('&amp;', '&');
 
-  Future<bool> _checkGridlinesVerificationStatus(
-      String requestId) async {
+    const marker = 'purpose=Know';
+    final index = value.indexOf(marker);
+    if (index != -1) {
+      value = value.substring(0, index + marker.length);
+    }
 
-    /*
-      TODO: Connect your actual backend status API here.
+    return Uri.parse(value.replaceAll(' ', '%20'));
+  }
 
-      Backend should:
-      1. Fetch the Gridlines verification status.
-      2. Validate the final result.
-      3. Return true only when verification is successful.
+  void _logLong(String label, String value) {
+    const chunk = 800;
+    debugPrint('$label length=${value.length}');
+    for (var i = 0; i < value.length; i += chunk) {
+      final end = i + chunk > value.length ? value.length : i + chunk;
+      debugPrint('$label ${value.substring(i, end)}');
+    }
+  }
 
-      Do not consider the deep link itself as proof of success.
-    */
-
-    throw UnimplementedError(
-      'Connect your Verification Status API here.',
-    );
+  Future<bool> _openDigiLocker(Uri uri) async {
+    const modes = [
+      LaunchMode.inAppBrowserView,
+      LaunchMode.externalApplication,
+    ];
+    for (final mode in modes) {
+      try {
+        final opened = await launchUrl(
+          uri,
+          mode: mode,
+          webViewConfiguration: const WebViewConfiguration(enableJavaScript: true),
+        );
+        if (opened) return true;
+      } catch (e) {
+        debugPrint('DigiLocker launch ($mode) failed: $e');
+      }
+    }
+    return false;
   }
 
   // --------------------------------------------------
@@ -256,33 +212,33 @@ class _AadharVerificationScreenState
       }
 
       _requestId = requestId;
+      _transactionId = response['transactionId']?.toString();
 
-      final Uri authUri = Uri.parse(authorizationUrl);
+      final Uri authUri = _digiLockerUri(authorizationUrl);
 
-      if (!authUri.hasScheme ||
-          authUri.scheme != 'https') {
-        throw Exception('Invalid authorization URL.');
+      if (authUri.scheme != 'https' ||
+          !authUri.host.contains('digitallocker.gov.in') ||
+          !authUri.path.contains('/oauth2/1/authorize')) {
+        throw Exception('Invalid DigiLocker authorization URL.');
       }
 
-      // Open Gridlines DigiLocker authorization page.
-      final bool opened = await launchUrl(
-        authUri,
-        mode: LaunchMode.externalApplication,
+      _logLong(
+        'Opening DigiLocker requestId=$_requestId transactionId=$_transactionId',
+        authUri.toString(),
       );
 
+      final bool opened = await _openDigiLocker(authUri);
       if (!opened) {
-        throw Exception(
-          'Unable to open DigiLocker authorization page.',
-        );
+        throw Exception('Unable to open DigiLocker authorization page.');
       }
-
     } catch (e) {
       debugPrint('Aadhaar verification error: $e');
 
       if (mounted) {
+        final raw = e.toString().replaceFirst('Exception: ', '');
         Get.snackbar(
           'Verification Error',
-          'Unable to start Aadhaar verification.',
+          raw.isEmpty ? 'Unable to start Aadhaar verification.' : raw,
         );
       }
     } finally {
@@ -310,7 +266,9 @@ class _AadharVerificationScreenState
 
   @override
   void dispose() {
-    _linkSubscription?.cancel();
+    if (_controller.onAadhaarDeepLink == _showPhotoUpload) {
+      _controller.onAadhaarDeepLink = null;
+    }
     _aadharController.dispose();
     super.dispose();
   }
@@ -497,7 +455,7 @@ class _AadharVerificationScreenState
                         const SizedBox(height: 4),
 
                         Text(
-                          'XXXX XXXX ${_aadharController.text.substring(8)}',
+                          _maskedAadhaar(),
                           style: const TextStyle(
                             fontSize: 13,
                             color: Colors.black87,
