@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter/services.dart';
 
 class OnboardingLayout extends StatelessWidget {
   final String title;
@@ -103,11 +104,14 @@ class OnboardingLayout extends StatelessWidget {
   }
 }
 
+
 Widget onboardingField({
   required String hint,
   TextEditingController? controller,
   TextInputType keyboardType = TextInputType.text,
   ValueChanged<String>? onChanged,
+  List<TextInputFormatter>? inputFormatters,
+  TextCapitalization textCapitalization = TextCapitalization.none,
 }) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 14),
@@ -115,6 +119,8 @@ Widget onboardingField({
       controller: controller,
       keyboardType: keyboardType,
       onChanged: onChanged,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
@@ -127,6 +133,7 @@ Widget onboardingField({
     ),
   );
 }
+
 
 Widget primaryButton({
   required String label,

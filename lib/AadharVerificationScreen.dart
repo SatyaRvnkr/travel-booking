@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'controllers/onboarding_controller.dart';
 import 'services/api_urls.dart';
 import 'services/auth_session.dart';
+import 'services/digilocker_service.dart';
 import 'models/document_type.dart';
 import 'widgets/document_upload_card.dart';
 import 'widgets/onboarding_layout.dart';
@@ -35,6 +36,9 @@ class _AadharVerificationScreenState
   bool _isVerified = false;
   bool _isVerifying = false;
   bool _canContinue = false;
+  bool _isFetchingDigilocker = false;
+  bool _digilockerFetchStarted = false;
+  AadhaarProfile? _profile;
 
   String? _requestId;
   String? _transactionId;
@@ -49,6 +53,37 @@ class _AadharVerificationScreenState
     super.initState();
     _isVerified = widget.showUpload || _controller.aadhaarReadyForUpload;
     _controller.onAadhaarDeepLink = _showPhotoUpload;
+    if (_isVerified) {
+      _fetchDigilockerData();
+    }
+  }
+
+  Widget _profileRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value.trim().isEmpty ? '-' : value.trim(),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _maskedAadhaar() {
@@ -65,6 +100,33 @@ class _AadharVerificationScreenState
       _isVerified = true;
       _isVerifying = false;
     });
+    _fetchDigilockerData();
+  }
+
+  Future<void> _fetchDigilockerData() async {
+    if (_digilockerFetchStarted) return;
+    _digilockerFetchStarted = true;
+    setState(() => _isFetchingDigilocker = true);
+
+    try {
+      final result = await DigilockerService().fetchAfterRedirect();
+      _controller.aadhaarDigilockerData = result.issuedFile;
+      if (!mounted) return;
+      setState(() {
+        _profile = result.profile;
+        _isFetchingDigilocker = false;
+      });
+    } catch (e) {
+      debugPrint('DigiLocker fetch error: $e');
+      if (!mounted) return;
+      _digilockerFetchStarted = false;
+      setState(() => _isFetchingDigilocker = false);
+      final raw = e.toString().replaceFirst('Exception: ', '');
+      Get.snackbar(
+        'DigiLocker',
+        raw.isEmpty ? 'Unable to fetch Aadhaar data.' : raw,
+      );
+    }
   }
 
   // --------------------------------------------------
@@ -213,6 +275,9 @@ class _AadharVerificationScreenState
 
       _requestId = requestId;
       _transactionId = response['transactionId']?.toString();
+      if (_transactionId != null && _transactionId!.isNotEmpty) {
+        DigilockerService.saveTransactionId(_transactionId!);
+      }
 
       final Uri authUri = _digiLockerUri(authorizationUrl);
 
@@ -468,6 +533,32 @@ class _AadharVerificationScreenState
               ),
             ),
 
+            if (_isFetchingDigilocker) ...[
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Fetching Aadhaar from DigiLocker...',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_profile != null) ...[
+              const SizedBox(height: 16),
+              _profileRow('Name', _profile!.name),
+              _profileRow('Address', _profile!.address),
+              _profileRow('Mobile number', _profile!.mobile),
+              _profileRow('Date of birth', _profile!.dateOfBirth),
+            ],
             const SizedBox(height: 24),
 
             const Text(

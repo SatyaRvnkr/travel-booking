@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:timelycabparcel_onboarding/services/api_urls.dart';
 import 'package:timelycabparcel_onboarding/services/auth_session.dart';
+import 'package:timelycabparcel_onboarding/widgets/custom_toast.dart';
 
 import 'controllers/onboarding_controller.dart';
 
@@ -136,12 +137,10 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           _otpController.clear();
         });
 
-        Get.snackbar(
-          'OTP Sent',
-          'Please enter the six-digit OTP.',
-          snackPosition: SnackPosition.BOTTOM,
+        CustomToast.success(
+          context,
+          'OTP sent successfully. Please enter the six-digit OTP.',
         );
-
         // Do not navigate yet.
         // Wait until the user verifies the OTP.
 
@@ -234,9 +233,14 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           );
           return;
         }
-
         AuthSession.saveToken(token);
-        debugPrint('Access token saved for later API calls');
+
+        CustomToast.success(
+          context,
+          'OTP verified successfully!',
+        );
+
+        _controller.goToRegister();
 
         _controller.goToRegister();
       } else {
@@ -297,15 +301,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
   }
 
   void _showError(String title, String message) {
-    Get.snackbar(
-      title,
-      message,
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.red.shade50,
-      colorText: Colors.black87,
-      margin: const EdgeInsets.all(16),
-      duration: const Duration(seconds: 3),
-    );
+    CustomToast.error(context, '$title: $message');
   }
 
   @override
@@ -354,6 +350,78 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
                   ),
 
 
+
+
+                  const SizedBox(height: 15),
+
+                  const Text(
+                    'Payment info, ride details and important '
+                        'updates will be sent to this number.',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 16,
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  Container(
+                    height: 70,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.green,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 12),
+
+                        Image.asset(
+                          'assets/images/flag.png',
+                          width: 35,
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: Colors.grey.shade300,
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Expanded(
+                          child: TextField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            maxLength: 13,
+                            enabled: !_isLoading,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            decoration: const InputDecoration(
+                              counterText: '',
+                              border: InputBorder.none,
+                              labelText: 'Phone number',
+                              hintText: '+91 9876543210',
+                              labelStyle: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                              hintStyle: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   if (_otpSent) ...[
                     const SizedBox(height: 24),
 
@@ -460,78 +528,6 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
                       ),
                     ),
                   ],
-
-
-                  const SizedBox(height: 15),
-
-                  const Text(
-                    'Payment info, ride details and important '
-                        'updates will be sent to this number.',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  Container(
-                    height: 70,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.green,
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-
-                        Image.asset(
-                          'assets/images/flag.png',
-                          width: 35,
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Container(
-                          width: 1,
-                          height: 40,
-                          color: Colors.grey.shade300,
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: TextField(
-                            controller: _phoneController,
-                            keyboardType: TextInputType.phone,
-                            maxLength: 13,
-                            enabled: !_isLoading,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                            decoration: const InputDecoration(
-                              counterText: '',
-                              border: InputBorder.none,
-                              labelText: 'Phone number',
-                              hintText: '+91 9876543210',
-                              labelStyle: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              hintStyle: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
                   const Spacer(),
 

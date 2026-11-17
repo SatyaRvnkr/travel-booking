@@ -1,5 +1,4 @@
 import 'package:get/get.dart';
-
 import '../AadharVerificationScreen.dart';
 import '../ApplicationSubmittedScreen.dart';
 import '../BankVerificationScreen.dart';
@@ -32,7 +31,11 @@ class OnboardingController extends GetxController {
   String ifscCode = '';
   String accountHolder = '';
   bool rcRejected = false;
+  String categoryId = '';
+  String vehicleType = '';
+  String categoryType = '';
   bool aadhaarReadyForUpload = false;
+  Map<String, dynamic>? aadhaarDigilockerData;
   void Function()? onAadhaarDeepLink;
 
   /// DigiLocker returned to the app. Show Aadhaar photo upload.
@@ -84,4 +87,16 @@ class OnboardingController extends GetxController {
   void goToBank() => Get.to(() => const BankVerificationScreen());
 
   void goToSubmitted() => Get.offAll(() => const ApplicationSubmittedScreen());
+
+  void selectVehicleCategory(VehicleCategory selected) {
+    categoryId = selected.id;
+    category = selected.categoryName;
+    vehicleType = selected.vehicleType;
+    categoryType = selected.categoryType;
+
+    print('Selected Category: $category');
+    print('Category ID: $categoryId');
+    print('Vehicle Type: $vehicleType');
+    print('Category Type: $categoryType');
+  }
 }

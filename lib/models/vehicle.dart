@@ -13,3 +13,16 @@ final List<Vehicle> vehicles = [
   Vehicle(name: 'Goods Carrier', image: 'assets/images/transport.png'),
   Vehicle(name: 'Tanga', image: 'assets/images/tanga.png'),
 ];
+class VehicleCategory {
+  final String id;
+  final String categoryName;
+  final String vehicleType;
+  final String categoryType;
+
+  const VehicleCategory({
+    required this.id,
+    required this.categoryName,
+    required this.vehicleType,
+    required this.categoryType,
+  });
+}

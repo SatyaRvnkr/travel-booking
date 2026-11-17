@@ -16,6 +16,10 @@ class ApiUrls {
   static const String aadhaarDigilockerInit =
       '$baseUrl/api/driver/aadhaar/digilocker/init';
 
+  /// POST vehicle RC verification.
+  static const String verifyVehicleRc =
+      '$baseUrl/api/driver/vehicle_rc/verify';
+
   /// Backend should redirect the phone browser here after DigiLocker.
   /// Opens the Aadhaar screen with front and back photo upload.
   static const String aadhaarAppRedirect = 'timelycab://aadhaar';
